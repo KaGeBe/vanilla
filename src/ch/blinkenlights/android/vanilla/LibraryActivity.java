@@ -43,6 +43,7 @@ import android.support.v4.view.ViewPager;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.ContextMenu;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -263,6 +264,20 @@ public class LibraryActivity
 	 */
 	private void loadAlbumIntent(Intent intent)
 	{
+		if (intent.getAction().equals("android.intent.action.VIEW")) {
+			 Uri data = intent.getData();
+			 if (data.getScheme().equals("file")) {
+				 Intent internalIntent = new Intent();
+				 internalIntent.putExtra("type", MediaUtils.TYPE_FILE);
+				 internalIntent.putExtra("file", data.getPath());
+				 int action = (mState & PlaybackService.FLAG_PLAYING) == 0 ? ACTION_PLAY : ACTION_ENQUEUE;
+				 pickSongsFromFileIntent(internalIntent, action);
+			 } else if (data.getScheme().equals("content")) {
+				 
+			 }
+			 return;
+		}
+		
 		long albumId = intent.getLongExtra("albumId", -1);
 		if (albumId != -1) {
 			String[] fields = { intent.getStringExtra("artist"), intent.getStringExtra("album") };
@@ -384,7 +399,21 @@ public class LibraryActivity
 		String text = getString(isEnqueue ? R.string.enqueue_all : R.string.play_all);
 		mPagerAdapter.setHeaderText(text);
 	}
+	
+	/**
+	 * Adds songs matching the data from the given intent to the song timelime.
+	 *
+	 * @param intent An intent with extras type and file.
+	 */
+	private void pickSongsFromFileIntent(Intent intent, int mode)
+	{
+		boolean all = true;
 
+		QueryTask query = buildQueryFromIntent(intent, false, all);
+		query.mode = modeForAction[mode];
+		PlaybackService.get(this).addSongs(query);
+	}
+	
 	/**
 	 * Adds songs matching the data from the given intent to the song timelime.
 	 *
